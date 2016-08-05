@@ -408,8 +408,8 @@ public class SSHLauncher extends ComputerLauncher {
         this.prefixStartSlaveCmd = fixEmpty(prefixStartSlaveCmd);
         this.suffixStartSlaveCmd = fixEmpty(suffixStartSlaveCmd);
         this.launchTimeoutSeconds = null;
-        this.maxNumRetries = null;
-        this.retryWaitTime = null;
+        this.maxNumRetries = Integer.valueOf(7);
+        this.retryWaitTime = Integer.valueOf(10);
     }
 
     /**
@@ -1181,7 +1181,7 @@ public class SSHLauncher extends ComputerLauncher {
         listener.getLogger().println(Messages.SSHLauncher_OpeningSSHConnection(getTimestamp(), host + ":" + port));
         connection.setTCPNoDelay(true);
 
-        int maxNumRetries = this.maxNumRetries == null || this.maxNumRetries < 0 ? 0 : this.maxNumRetries;
+        int maxNumRetries = this.maxNumRetries == null || this.maxNumRetries < 0 ? 7 : this.maxNumRetries;
 
         for (int i = 0; i <= maxNumRetries; i++) {
             try {
