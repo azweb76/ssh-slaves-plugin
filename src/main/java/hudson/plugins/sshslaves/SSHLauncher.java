@@ -1179,46 +1179,53 @@ public class SSHLauncher extends ComputerLauncher {
 
     protected void openConnection(TaskListener listener) throws IOException, InterruptedException {
         listener.getLogger().println(Messages.SSHLauncher_OpeningSSHConnection(getTimestamp(), host + ":" + port));
-        connection.setTCPNoDelay(true);
 
-        int maxNumRetries = this.maxNumRetries == null || this.maxNumRetries < 0 ? 7 : this.maxNumRetries;
-
-        for (int i = 0; i <= maxNumRetries; i++) {
-            try {
-                connection.connect();
-                break;
-            } catch (IOException ioexception) {
-                listener.getLogger().println(ioexception.getCause().getMessage());
-                String ioExceptionMessageCause = "";
-                if (ioexception.getCause() != null) {
-                    ioExceptionMessageCause = ioexception.getCause().getMessage();
-                }
-                if (!ioExceptionMessageCause.equals("Connection refused")) {
-                    break;
-                }
-                if (maxNumRetries - i > 0) {
-                    listener.getLogger().println("SSH Connection failed with IOException: \"" + ioExceptionMessageCause
-                                                         + "\", retrying in " + retryWaitTime + " seconds.  There are "
-                                                         + (maxNumRetries - i) + " more retries left.");
-                } else {
-                    listener.getLogger().println("SSH Connection failed with IOException: \"" + ioExceptionMessageCause + "\".");
-                    throw ioexception;
-                }
-            }
-            Thread.sleep(TimeUnit.SECONDS.toMillis(retryWaitTime));
-        }
-
-        StandardUsernameCredentials credentials = getCredentials();
-        if (credentials == null) {
-            throw new AbortException("Cannot find SSH User credentials with id: " + credentialsId);
-        }
-        if (SSHAuthenticator.newInstance(connection, credentials).authenticate(listener)
-                && connection.isAuthenticationComplete()) {
-            listener.getLogger().println(Messages.SSHLauncher_AuthenticationSuccessful(getTimestamp()));
+        StandardUsernameCredentials credentials = this.getCredentials();
+        if(credentials == null) {
+            throw new AbortException("Cannot find SSH User credentials with id: " + this.credentialsId);
         } else {
-            listener.getLogger().println(Messages.SSHLauncher_AuthenticationFailed(getTimestamp()));
-            throw new AbortException(Messages.SSHLauncher_AuthenticationFailedException());
+            int maxNumRetries = this.maxNumRetries == null || this.maxNumRetries < 0 ? 7 : this.maxNumRetries;
+
+            for (int i = 0; i <= maxNumRetries; i++) {
+                try {
+                    this.connection = new Connection(this.host, this.port);
+                    this.connection.setTCPNoDelay(true);
+                    this.connection.connect();
+
+                    if (SSHAuthenticator.newInstance(this.connection, credentials).authenticate(listener) && this.connection.isAuthenticationComplete()) {
+                        listener.getLogger().println(Messages.SSHLauncher_AuthenticationSuccessful(this.getTimestamp()));
+                        break;
+                    }
+
+                    if (maxNumRetries - i <= 0) {
+                        listener.getLogger().println(Messages.SSHLauncher_AuthenticationFailed(this.getTimestamp()));
+                        throw new AbortException(Messages.SSHLauncher_AuthenticationFailedException());
+                    }
+
+                    listener.getLogger().println("SSH Authentication failed. Retrying in " + this.retryWaitTime + " seconds.  There are " + (maxNumRetries - i) + " more retries left.");
+                    this.connection.close();
+                    this.connection.setTCPNoDelay(true);
+                } catch (IOException ioexception) {
+                    listener.getLogger().println(ioexception.getCause().getMessage());
+                    String ioExceptionMessageCause = "";
+                    if (ioexception.getCause() != null) {
+                        ioExceptionMessageCause = ioexception.getCause().getMessage();
+                    }
+                    if (!ioExceptionMessageCause.equals("Connection refused")) {
+                        break;
+                    }
+                    if (maxNumRetries - i > 0) {
+                        listener.getLogger().println("SSH Connection failed with IOException: \"" + ioExceptionMessageCause
+                                + "\", retrying in " + retryWaitTime + " seconds.  There are "
+                                + (maxNumRetries - i) + " more retries left.");
+                    }
+
+                    listener.getLogger().println("SSH Connection failed with IOException: \"" + ioExceptionMessageCause + "\", retrying in " + this.retryWaitTime + " seconds.  There are " + (maxNumRetries - i) + " more retries left.");
+                }
+                Thread.sleep(TimeUnit.SECONDS.toMillis(retryWaitTime));
+            }
         }
+
     }
 
     /**
